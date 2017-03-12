@@ -18,23 +18,23 @@ typedef unsigned int u32;
 
 namespace detail {
 
-int get_random_i32(i32 min_num, i32 max_num)
+int get_random_i32(i32 min_val, i32 max_val)
 {
 #if defined(RAND_MAX) && (RAND_MAX == 0x7FFF)
     return (((rand() << 30) & 0x40000000L) | (rand() << 15) | rand())
-            % (max_num - min_num + 1) + min_num;
+            % (max_val - min_val + 1) + min_val;
 #else
-    return ((i32)rand() % (max_num - min_num + 1)) + min_num;
+    return ((i32)rand() % (max_val - min_val + 1)) + min_val;
 #endif
 }
 
-u32 get_random_u32(u32 min_num, u32 max_num)
+u32 get_random_u32(u32 min_val, u32 max_val)
 {
 #if defined(RAND_MAX) && (RAND_MAX == 0x7FFF)
     return ((u32)(((rand() << 30) & 0xC0000000L) | (rand() << 15) | rand()))
-            % (max_num - min_num + 1) + min_num;
+            % (max_val - min_val + 1) + min_val;
 #else
-    return ((u32)rand() % (max_num - min_num + 1)) + min_num;
+    return ((u32)rand() % (max_val - min_val + 1)) + min_val;
 #endif
 }
 
@@ -75,13 +75,19 @@ public:
     }
     ~RandomGenerator() {}
 
-    static value_type next(value_type min_num, value_type max_num) {
+    static value_type next(value_type min_val, value_type max_val) {
 #if defined(RAND_MAX) && (RAND_MAX == 0x7FFF)
         return (value_type)(((u32)(((rand() << 30) & 0x40000000L) | (rand() << 15) | rand()))
-                % (max_num - min_num + 1) + min_num);
+                % (max_val - min_val + 1) + min_val);
 #else
-        return (value_type)(((u32)rand() % (max_num - min_num + 1)) + min_num);
+        return (value_type)(((u32)rand() % (max_val - min_val + 1)) + min_val);
 #endif
+    }
+
+    static value_type next(value_type max_limits) {
+        assert(max_limits > 0);
+        // Randomize number range is [0, max_limits).
+        return this_class::next(0, max_limits - 1);
     }
 
     static value_type next() {
@@ -89,8 +95,13 @@ public:
         return this_class::next(0, 2147483647);
     }
 
-    static i32 next_i32(i32 min_num, i32 max_num) {
-        return detail::get_random_i32(min_num, max_num);
+    static i32 next_i32(i32 min_val, i32 max_val) {
+        return detail::get_random_i32(min_val, max_val);
+    }
+
+    static i32 next_i32(i32 max_limits) {
+        assert(max_limits > 0);
+        return detail::get_random_i32(0, max_limits - 1);
     }
 
     static i32 next_i32() {
@@ -98,8 +109,13 @@ public:
         return this_class::next_i32(0, 2147483647L);
     }
 
-    static u32 next_u32(u32 min_num, u32 max_num) {
-        return detail::get_random_u32(min_num, max_num);
+    static u32 next_u32(u32 min_val, u32 max_val) {
+        return detail::get_random_u32(min_val, max_val);
+    }
+
+    static u32 next_u32(u32 max_limits) {
+        assert(max_limits > 0);
+        return detail::get_random_u32(0, max_limits - 1);
     }
 
     static i32 next_u32() {
@@ -152,6 +168,12 @@ public:
     Item const & get_groups(int index) const {
         assert(index >= 0 && index < (int)groups.size());
         return groups[index];
+    }
+
+    void copy_from(Answer const & src) {
+        if (this->groups.size() == src.groups.size()) {
+            detail::copy_container(this->groups, src.groups);
+        }
     }
 
     void pick_numbers(size_t group_index, int index1, int index2) {
@@ -358,6 +380,7 @@ public:
 
         int front = length_ / 2 -  1, back = front + 1;
         for (u32 i = 0; i < step; ++i) {
+            group_index = RandomGen::next(groups_);
             result.pick_numbers(group_index, front, back);
             group_index++;
             group_index %= groups_;
@@ -387,8 +410,10 @@ public:
         answer_.set_numbers(sorted_nums_);
         
         Answer answer(groups_, sorted_nums_);
-        int results = random_pick_numbers(answer_);
-
+        int results = random_pick_numbers(answer);
+        if (results > 0) {
+            answer_.copy_from(answer);
+        }
         answer_.sort_numbers(false);
         return 1;
     }

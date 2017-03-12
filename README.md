@@ -14,7 +14,7 @@ We have 100 numbers, now need to be divided into 10 groups, and let the sum of e
 
 (原题：来自QQ群[c++1z boost 交流] 忆雪寒：有100个单位，每个单位员工数量不等，现在要将这100个单位分成10个组，要求每个组总员工数平均相差最少，每个单位的人不能分开，都要在一个组里。)
 
-# Some refrence (一些参考资料)：
+# Some reference (一些参考资料)：
 
 把一堆自然数平均分成M组，每组自然数之和为K，如何分组才能让各组的K值最接近？
 https://www.zhihu.com/question/19814220
