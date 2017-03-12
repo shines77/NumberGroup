@@ -248,7 +248,7 @@ namespace detail {
 
 void display_numbers(std::vector<u32> const & numbers, i32 columns)
 {
-    u32 length = numbers.size();
+    u32 length = (u32)numbers.size();
     printf("Numbers[%u] = {\n", length);
     for (u32 i = 0; i < length; ++i) {
         if (((i32)i % columns) == 0)
@@ -308,7 +308,7 @@ private:
     u32 min_num_, max_num_;
     u32 sum_, average_, remain_;
     std::vector<u32> numbers_;
-    std::vector<u32> sorted_nums_;
+    std::vector<u32> sorted_list_;
     Answer answer_;
 
 public:
@@ -329,7 +329,7 @@ public:
     }
 
     void display_sorted_numbers() {
-        detail::display_numbers(sorted_nums_, DISPLAY_COLUMNS);
+        detail::display_numbers(sorted_list_, DISPLAY_COLUMNS);
     }
 
     void display_answers_detail() {
@@ -361,14 +361,14 @@ public:
     }
 
     void sort_numbers() {
-        detail::copy_container< std::vector<u32> >(sorted_nums_, numbers_);
+        detail::copy_container< std::vector<u32> >(sorted_list_, numbers_);
 
         size_t i, j;
         size_t length = numbers_.size();
         for (i = 0; i < length - 1; ++i) {
             for (j = i + 1; j < length; ++j) {
-                if (sorted_nums_[i] < sorted_nums_[j]) {
-                    std::swap(sorted_nums_[i], sorted_nums_[j]);
+                if (sorted_list_[i] < sorted_list_[j]) {
+                    std::swap(sorted_list_[i], sorted_list_[j]);
                 }
             }
         }
@@ -407,9 +407,9 @@ public:
         display_sorted_numbers();
 
         answer_.resize(groups_);
-        answer_.set_numbers(sorted_nums_);
+        answer_.set_numbers(sorted_list_);
         
-        Answer answer(groups_, sorted_nums_);
+        Answer answer(groups_, sorted_list_);
         int results = random_pick_numbers(answer);
         if (results > 0) {
             answer_.copy_from(answer);
