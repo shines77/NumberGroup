@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NumGroup", "NumGroup\NumGroup.vcxproj", "{9B240BBE-18C7-4400-A85E-C34668BE03DD}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NumGroupC", "NumGroupC\NumGroupC.vcxproj", "{9B240BBE-18C7-4400-A85E-C34668BE03DD}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NumGroupCpp", "NumGroupCpp\NumGroupCpp.vcxproj", "{0343CDE0-B696-4975-AF81-2E0E9024169D}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NumGroup", "NumGroup\NumGroup.vcxproj", "{0343CDE0-B696-4975-AF81-2E0E9024169D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -176,7 +176,7 @@ public:
         }
     }
 
-    void pick_numbers(size_t group_index, int index1, int index2) {
+    void pick_numbers(u32 group_index, i32 index1, i32 index2) {
         assert(group_index >= 0 && group_index < groups.size());
         if (group_index >= 0 && group_index < groups.size()) {
             NumberInfo number_info;
@@ -189,7 +189,7 @@ public:
         }
     }
 
-    void pick_numbers(size_t group_index, int index) {
+    void pick_numbers(u32 group_index, i32 index) {
         assert(group_index >= 0 && group_index < groups.size());
         if (group_index >= 0 && group_index < groups.size()) {
             NumberInfo number_info;
@@ -374,11 +374,15 @@ public:
         }
     }
 
-    int random_pick_numbers(Answer & result) {
+    int balance_pick_numbers(Answer & result) {
         u32 step = length_ / 2;
         u32 group_index = 0;
 
-        int front = length_ / 2 -  1, back = front + 1;
+        i32 front, back;
+        front = length_ / 2 - 1;
+        if (front < 0)
+            front = 0;
+        back = front + 1;
         for (u32 i = 0; i < step; ++i) {
             group_index = RandomGen::next(groups_);
             result.pick_numbers(group_index, front, back);
@@ -386,18 +390,28 @@ public:
             group_index %= groups_;
             front--;
             back++;
-            if (front < 0 || back >= (int)length_)
+            if (front < 0 || back >= (i32)length_)
                 break;
         }
 
-        if (front < 0 && back < (int)length_) {
+        if (front < 0 && back < (i32)length_) {
             result.pick_numbers(group_index, back);
         }
-        else if (front >= 0 && back >= (int)length_) {
+        else if (front >= 0 && back >= (i32)length_) {
             result.pick_numbers(group_index, front);
         }
         
         return 1;
+    }
+
+    int random_pick_numbers(Answer & result) {
+        i32 remain_length = (i32)length_;
+        while (remain_length >= 0) {
+            u32 group_index = RandomGen::next(groups_);
+            i32 rand_index = RandomGen::next_i32(remain_length);
+            result.pick_numbers(group_index, rand_index);
+        }
+        return 0;
     }
 
     int slove() {

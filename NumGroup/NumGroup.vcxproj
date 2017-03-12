@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{9B240BBE-18C7-4400-A85E-C34668BE03DD}</ProjectGuid>
+    <ProjectGuid>{0343CDE0-B696-4975-AF81-2E0E9024169D}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>NumGroup</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
@@ -142,7 +142,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="main.c" />
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
