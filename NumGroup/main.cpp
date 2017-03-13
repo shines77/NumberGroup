@@ -174,7 +174,7 @@ public:
 
     ~Answer() {}
 
-    u32 number_count() const { return total_; }
+    u32 total_numbers() const { return total_; }
 
     void copy_numbers(std::vector<u32> const & numbers) {
         detail::copy_container< std::vector<u32> >(number_list, numbers);
@@ -186,7 +186,7 @@ public:
         sum_ = sum;
         average_ = average;
         remain_ = remain;
-        sum_limit_ = average_ * 2 / 3;
+        sum_limit_ = get_sum_limit(average);
     }
 
     void resize(u32 n_groups, bool clear = true) {
@@ -202,6 +202,7 @@ public:
     void copy_from(Answer const & src) {
         this->groups_ = src.groups_;
         this->length_ = src.length_;
+        this->total_ = src.total_;
 
         this->groups.clear();
         detail::copy_container(this->groups, src.groups);
@@ -223,13 +224,12 @@ public:
         return (remain_length > 0);
     }
 
-    bool pick_numbers(u32 group_index, i32 index1, i32 index2, i32 remain_length) {
+    bool pick_pair_numbers(u32 group_index, i32 index1, i32 index2) {
         assert(group_index >= 0 && group_index < groups.size());
-        assert(remain_length > 1 && remain_length <= (i32)number_list.size());
         assert(index1 >= 0 && index1 < (i32)number_list.size());
         assert(index2 >= 0 && index2 < (i32)number_list.size());
         if (group_index >= 0 && group_index < groups.size()) {
-            if (index1 != index2 && remain_length >= 2) {                
+            if (index1 != index2) {                
                 u32 value1, value2;
                 value1 = number_list[index1];
                 value2 = number_list[index2];
@@ -238,19 +238,35 @@ public:
                     NumberInfo number_info;
                     number_info.value = value1;
                     groups[group_index].numbers.push_back(number_info);
-                    move_num_to_last(index1, remain_length);
                     groups[group_index].sum += value1;
                     groups[group_index].length++;
                     total_++;
 
                     number_info.value = value2;
                     groups[group_index].numbers.push_back(number_info);
-                    move_num_to_last(index2, remain_length - 1);
                     groups[group_index].sum += value2;
                     groups[group_index].length++;
                     total_++;
                     return true;
                 }
+            }
+        }
+        return false;
+    }
+
+    bool pick_pair_numbers(u32 group_index, i32 index) {
+        assert(group_index >= 0 && group_index < groups.size());
+        assert(index >= 0 && index < (i32)number_list.size());
+        if (group_index >= 0 && group_index < groups.size()) {            
+            u32 value = number_list[index];
+            if (groups[group_index].sum + value <= sum_limit_) {
+                NumberInfo number_info;
+                number_info.value = value;
+                groups[group_index].numbers.push_back(number_info);
+                groups[group_index].sum += value;
+                groups[group_index].length++;
+                total_++;
+                return true;
             }
         }
         return false;
@@ -320,6 +336,10 @@ private:
         }
     }
 
+    u32 get_sum_limit(u32 average) {
+        return (average * 3 / 3);
+    }
+
     void get_basic_info() {
         u32 sum = 0;
         for (size_t i = 0; i < number_list.size(); ++i) {
@@ -328,7 +348,7 @@ private:
         sum_ = sum;
         average_ = sum / groups_;
         remain_ = sum % length_;
-        sum_limit_ = average_ * 2 / 3;
+        sum_limit_ = get_sum_limit(average_);
     }
 };
 
@@ -357,7 +377,7 @@ void display_answer_detail(Answer const & answer, u32 sum, u32 length, i32 group
     double std_diff = 0.0;
     i32 n_diff = 0, n_average = (i32)sum / groups;
 
-    printf("Answer[%u] = {\n", answer.number_count());
+    printf("Answer[%u] = {\n", answer.total_numbers());
     for (i32 g = 0; g < groups; ++g) {
         printf("    group[%2d]: { ", g + 1);
         u32 sum = 0;
@@ -378,7 +398,7 @@ void display_answer_detail(Answer const & answer, u32 sum, u32 length, i32 group
         double diff = (double)sum - average;
         std_diff += diff * diff;
         n_diff += sum - n_average;
-        printf(" }, sum = %u.\n", sum);
+        printf(" }, sum = %u, len = %u.\n", sum, answer.groups[g].length);
     }
     printf("}\n\n");
 
@@ -467,28 +487,40 @@ public:
         u32 group_index = 0;
 
         i32 remain_length = (i32)length_;
-        i32 front, back;
+        i32 front, back, loop;
+        bool exit = false;
         front = length_ / 2 - 1;
         if (front < 0)
             front = 0;
         back = front + 1;
         for (u32 i = 0; i < step; ++i) {
             group_index = RandomGen::next(groups_);
-            result.pick_numbers(group_index, front, back, remain_length);
-            group_index++;
-            group_index %= groups_;
-            remain_length -= 2;
-            front--;
-            back++;
-            if (front < 0 || back >= (i32)length_)
+            loop = 0;
+            do {
+                bool success = result.pick_pair_numbers(group_index, front, back);
+                group_index++;
+                group_index %= groups_;
+                loop++;
+                if (success || (loop > (i32)groups_)) {
+                    remain_length -= 2;
+                    if (remain_length < 0)
+                        exit = true;
+                    front--;
+                    back++;
+                    if (front < 0 || back >= (i32)length_)
+                        exit = true;
+                    break;
+                }
+            } while (1);
+            if (exit)
                 break;
         }
 
         if (front < 0 && back < (i32)length_) {
-            result.pick_numbers(group_index, back, remain_length);
+            result.pick_pair_numbers(group_index, back);
         }
         else if (front >= 0 && back >= (i32)length_) {
-            result.pick_numbers(group_index, front, remain_length);
+            result.pick_pair_numbers(group_index, front);
         }
         
         return 1;
@@ -520,6 +552,7 @@ public:
         
         Answer answer(groups_, length_, sorted_list_);
         int results = random_pick_numbers(answer);
+        //int results = balance_pick_numbers(answer);
         if (results > 0) {
             answer_.copy_from(answer);
         }
