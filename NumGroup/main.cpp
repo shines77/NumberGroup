@@ -178,7 +178,7 @@ public:
 
     void copy_numbers(std::vector<u32> const & numbers) {
         detail::copy_container< std::vector<u32> >(number_list, numbers);
-        length_ = number_list.size();
+        length_ = (u32)number_list.size();
         get_basic_info();
     }
 
@@ -337,7 +337,7 @@ private:
     }
 
     u32 get_sum_limit(u32 average) {
-        return (average * 3 / 3);
+        return (average * 2 / 3);
     }
 
     void get_basic_info() {
