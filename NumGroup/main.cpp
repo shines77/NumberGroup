@@ -60,12 +60,28 @@ struct RandomSeed {
     RandomSeed() { RandomSeed::init(); }
     ~RandomSeed() { /* Do nothing! */ }
 
-    static void init() {
+    static void init(int seed = -1) {
         if (!RandomSeed_inited) {
-            // Generate the randomize seed from time().
-            srand((unsigned int)time(NULL));
+            if (seed == -1) {
+                // Generate the randomize seed from time().
+                srand((unsigned int)time(NULL));
+            }
+            else {
+                srand((unsigned int)seed);
+            }
             RandomSeed_inited = true;
         }
+    }
+
+    static void force_reinit(int seed = -1) {
+        if (seed == -1) {
+            // Generate the randomize seed from time().
+            srand((unsigned int)time(NULL));
+        }
+        else {
+            srand((unsigned int)seed);
+        }
+        RandomSeed_inited = true;
     }
 };
 
@@ -419,6 +435,8 @@ private:
     std::vector<u32> sorted_list_;
     Answer answer_;
 
+    const double kPrePickupCoffe = 0.6f;
+
 public:
     NumberGroup(u32 groups, u32 length, u32 min_num, u32 max_num)
         : groups_(groups), length_(length), min_num_(min_num), max_num_(max_num),
@@ -441,6 +459,7 @@ public:
     }
 
     void display_answers_detail() {
+        printf("kPrePickupCoffe = %0.6f\n\n", kPrePickupCoffe);
         detail::display_answer_detail(answer_, sum_, length_, groups_);
     }
 
@@ -450,7 +469,7 @@ public:
     }
 
     void display_no_answers() {
-        printf("No answers!\n\n");
+        printf("Did not find any answers!\n\n");
     }
 
     void get_basic_info() {
@@ -528,7 +547,7 @@ public:
 
     int random_pick_numbers(Answer & result) {
         i32 remain_length = (i32)length_;
-        const i32 pick_nums = length_ * 2 / 3;
+        const i32 pick_nums = (const i32)(length_ * kPrePickupCoffe);
         while (remain_length > ((i32)length_ - pick_nums)) {
             u32 group_index = RandomGen::next(groups_);
             i32 rand_index = RandomGen::next_i32(remain_length);
@@ -548,7 +567,7 @@ public:
         answer_.resize(groups_);
         answer_.copy_numbers(sorted_list_);
 
-        RandomSeed::init();
+        //RandomSeed::force_reinit(2017);
         
         Answer answer(groups_, length_, sorted_list_);
         int results = random_pick_numbers(answer);
@@ -575,7 +594,8 @@ private:
 
 int main(int argc, char * argv[])
 {
-    //RandomSeed::init();
+    // Force init fixed randomize seed.
+    RandomSeed::force_reinit(2017);
 
     NumberGroup slover(GROUP_COUNT, NUMBER_COUNT, 5, 100);
 
