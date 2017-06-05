@@ -246,7 +246,7 @@ public:
         assert(this->n_group_ == src.groups.size());
 
         this->number_list.clear();
-        copy_numbers(src.number_list);        
+        copy_numbers(src.number_list);
         assert(this->num_length_ == this->number_list.size());
         get_basic_info();
     }
@@ -262,12 +262,12 @@ public:
         return (remain_length > 0);
     }
 
-    bool pick_pair_numbers(u32 group_index, i32 index1, i32 index2) {
+    bool pickup_pair_numbers(u32 group_index, i32 index1, i32 index2) {
         assert(group_index >= 0 && group_index < groups.size());
         assert(index1 >= 0 && index1 < (i32)number_list.size());
         assert(index2 >= 0 && index2 < (i32)number_list.size());
         if (group_index >= 0 && group_index < groups.size()) {
-            if (index1 != index2) {                
+            if (index1 != index2) {
                 u32 value1, value2;
                 value1 = number_list[index1];
                 value2 = number_list[index2];
@@ -292,10 +292,10 @@ public:
         return false;
     }
 
-    bool pick_pair_numbers(u32 group_index, i32 index) {
+    bool pickup_pair_numbers(u32 group_index, i32 index) {
         assert(group_index >= 0 && group_index < groups.size());
         assert(index >= 0 && index < (i32)number_list.size());
-        if (group_index >= 0 && group_index < groups.size()) {            
+        if (group_index >= 0 && group_index < groups.size()) {
             u32 value = number_list[index];
             if (groups[group_index].sum + value <= sum_limit_) {
                 NumberInfo number_info;
@@ -310,11 +310,12 @@ public:
         return false;
     }
 
-    bool pick_numbers(u32 group_idx, i32 index, i32 remain_length, u32 sum_limit) {
+    bool pickup_numbers(u32 group_idx, i32 index, i32 remain_length, u32 sum_limit) {
         assert(group_idx >= 0 && group_idx < groups.size());
         assert(remain_length >= 1 && remain_length <= (i32)number_list.size());
         assert(index >= 0 && index < (i32)number_list.size());
-        if (group_idx >= 0 && group_idx < groups.size() && remain_length >= 1) {            
+        if (group_idx >= 0 && group_idx < groups.size() && remain_length >= 1) {
+            assert(index < remain_length);
             u32 value = number_list[index];
             if (groups[group_idx].sum + value <= sum_limit) {
                 NumberInfo number_info;
@@ -330,7 +331,27 @@ public:
         return false;
     }
 
-    void sort_numbers(bool is_asc = true) {
+    bool unpickup_numbers(u32 group_idx, i32 index, i32 remain_length) {
+        assert(group_idx >= 0 && group_idx < groups.size());
+        assert(remain_length >= 1 && remain_length <= (i32)number_list.size());
+        assert(index >= 0 && index < (i32)number_list.size());
+        if (group_idx >= 0 && group_idx < groups.size() && remain_length >= 1) {
+            u32 value = number_list[remain_length - 1];
+            NumberInfo & number_info = groups[group_idx].numbers.back();
+            assert(value == number_info.value);
+            groups[group_idx].numbers.pop_back();
+            move_num_to_last(index, remain_length);
+            assert(groups[group_idx].sum >= value);
+            groups[group_idx].sum -= value;
+            groups[group_idx].length--;
+            num_used_--;
+            return true;
+        }
+        return false;
+    }
+
+    void sort_numbers(bool is_asc = true, size_t max_length = 0) {
+        // Sort per group number list, asc or desc order.
         for (size_t g = 0; g < groups.size(); ++g) {
             std::vector<NumberInfo> & numbers = groups[g].numbers;
             if (is_asc) {
@@ -349,6 +370,20 @@ public:
                             std::swap(numbers[i], numbers[j]);
                         }
                     }
+                }
+            }
+        }
+
+        // Sort number list, desc order.
+        size_t length;
+        if (max_length == 0)
+            length = number_list.size();
+        else
+            length = max_length;
+        for (size_t i = 0; i < length - 1; ++i) {
+            for (size_t j = i + 1; j < length; ++j) {
+                if (number_list[i] < number_list[j]) {
+                    std::swap(number_list[i], number_list[j]);
                 }
             }
         }
@@ -448,15 +483,6 @@ void display_answer_detail(Answer const & answer, u32 sum, u32 length, i32 group
 
 } // namespace detail
 
- class FillList {
-public:
-    std::vector<u32> numbers;
-
-public:
-     FillList() {};
-     ~FillList() {}
- };
-
 class NumberGroup {
 private:
     typedef RandomGenerator<u32> RandomGen;
@@ -525,11 +551,15 @@ public:
                sum_, remain_, group_average, num_average);
     }
 
-    void sort_numbers() {
+    void sort_numbers(size_t max_length = 0) {
         detail::copy_container< std::vector<u32> >(sorted_list_, numbers_);
 
         size_t i, j;
-        size_t length = numbers_.size();
+        size_t length;
+        if (max_length == 0)
+            length = numbers_.size();
+        else
+            length = max_length;
         for (i = 0; i < length - 1; ++i) {
             for (j = i + 1; j < length; ++j) {
                 if (sorted_list_[i] < sorted_list_[j]) {
@@ -539,7 +569,7 @@ public:
         }
     }
 
-    int balance_pick_numbers(Answer & result) {
+    int balance_pickup_numbers(Answer & result) {
         u32 step = num_length_ / 2;
         u32 group_index = 0;
 
@@ -554,7 +584,7 @@ public:
             group_index = RandomGen::next(n_group_);
             loop = 0;
             do {
-                bool success = result.pick_pair_numbers(group_index, front, back);
+                bool success = result.pickup_pair_numbers(group_index, front, back);
                 group_index++;
                 group_index %= n_group_;
                 loop++;
@@ -574,22 +604,22 @@ public:
         }
 
         if (front < 0 && back < (i32)num_length_) {
-            result.pick_pair_numbers(group_index, back);
+            result.pickup_pair_numbers(group_index, back);
         }
         else if (front >= 0 && back >= (i32)num_length_) {
-            result.pick_pair_numbers(group_index, front);
+            result.pickup_pair_numbers(group_index, front);
         }
-        
+
         return 1;
     }
 
-    int random_pick_numbers(Answer & result) {
+    int random_pickup_numbers(Answer & result) {
         i32 remain_length = (i32)num_length_;
-        const i32 pick_nums = (const i32)(num_length_ * kPrePickupCoffe);
-        while (remain_length > ((i32)num_length_ - pick_nums)) {
+        const i32 pickup_nums = (const i32)(num_length_ * kPrePickupCoffe);
+        while (remain_length > ((i32)num_length_ - pickup_nums)) {
             u32 group_index = RandomGen::next(n_group_);
             i32 rand_index = RandomGen::next_i32(remain_length);
-            if (result.pick_numbers(group_index, rand_index, remain_length, result.sum_limit())) {
+            if (result.pickup_numbers(group_index, rand_index, remain_length, result.sum_limit())) {
                 remain_length--;
             }
         }
@@ -608,62 +638,87 @@ public:
         answer_.copy_numbers(sorted_list_);
 
         //RandomSeed::force_reinit(2017);
-        
+
         Answer answer(n_group_, num_length_, sorted_list_);
-        int used_numbers = random_pick_numbers(answer);
-        //int used_numbers = balance_pick_numbers(answer);
+        int used_numbers = random_pickup_numbers(answer);
+        //int used_numbers = balance_pickup_numbers(answer);
         if (used_numbers > 0) {
             answer_.copy_from(answer);
         }
-        answer_.sort_numbers(false);
+        answer_.sort_numbers(false, answer_.remain_numbers());
+
+        detail::display_numbers(answer_.numbers(), DISPLAY_COLUMNS);
         return used_numbers;
     }
 
-    bool fill_a_group_impl(Answer & answer, u32 groud_idx,
-                           std::vector<u32> & fill_list,
-                           int depth, u32 target_sum, u32 rest_sum) {
+    void display_a_filllist(const Answer & answer, u32 groud_idx,
+                            const std::vector<u32> & fill_list, int depth) {
+        printf("groud_idx = %u, sum = %u\n\n", groud_idx, answer.groups[groud_idx].sum);
+        printf("[%u] = \" ", groud_idx);
+        for (u32 i = 0; i < answer.groups[groud_idx].length; ++i) {
+            if (i < answer.groups[groud_idx].length - 1)
+                printf("%u, ", answer.groups[groud_idx].numbers[i].value);
+            else
+                printf("%u", answer.groups[groud_idx].numbers[i].value);
+        }
+        printf(" \"\n\n");
+
+        printf("depth = %d, fill list is: [ ", depth);
+        for (u32 i = 0; i < fill_list.size(); ++i) {
+            if (i < fill_list.size() - 1)
+                printf("%u, ", fill_list[i]);
+            else
+                printf("%u", fill_list[i]);
+        }
+        printf(" ]\n\n");
+    }
+
+    int fill_a_group_impl(Answer & answer, u32 groud_idx, u32 pre_index,
+                          std::vector<u32> & fill_list,
+                          int depth, u32 target_sum, u32 rest_sum) {
+        int results = 0;
         u32 group_sum = answer.groups[groud_idx].sum;
         if (group_sum == target_sum || rest_sum == 0) {
-            return true;
+            // Get a right group number list, continue to next group index.
+            display_a_filllist(answer, groud_idx, fill_list, depth);
+            return 1;
         }
         else if (group_sum > target_sum) {
-            return false;
+            return 0;
         }
         u32 remain_numbers = answer.remain_numbers();
         bool found = false;
-        bool success;
-        for (u32 index = 0; index < remain_numbers; ++index) {
+        for (u32 index = pre_index + 1; index < remain_numbers; ++index) {
             u32 number = answer.number_list[index];
             if (number < rest_sum) {
                 found = true;
-                rest_sum -= number;
-                if (answer.pick_numbers(groud_idx, index, remain_numbers - depth, target_sum)) {
+                // Pickup
+                if (answer.pickup_numbers(groud_idx, index, remain_numbers, target_sum)) {
                     fill_list.push_back(number);
-                    success = fill_a_group_impl(answer, groud_idx, fill_list, depth + 1, target_sum, rest_sum);
-                    if (success) {
-                        // Get a right group number list, continue to next group index.
-                        return true;
+                    int next_results = fill_a_group_impl(answer, groud_idx, index, fill_list, depth + 1, target_sum, rest_sum - number);
+                    if (next_results > 0) {
+                        results++;
                     }
-                }
-                else {
-                    return false;
+                    // Unpickup
+                    if (answer.unpickup_numbers(groud_idx, index, remain_numbers)) {
+                        fill_list.pop_back();
+                    }
                 }
             }
             else if (number == rest_sum) {
                 // Get a right group number list, continue to next group index.
-                if (answer.pick_numbers(groud_idx, index, remain_numbers - depth, target_sum)) {
+                if (answer.pickup_numbers(groud_idx, index, remain_numbers, target_sum)) {
                     fill_list.push_back(number);
-                    return true;
+                    display_a_filllist(answer, groud_idx, fill_list, depth);
                 }
-                else {
-                    return false;
-                }                
+                // Unpickup
+                if (answer.unpickup_numbers(groud_idx, index, remain_numbers)) {
+                    fill_list.pop_back();
+                }
+                return 1;
             }
         }
-        if (!found) {
-            return false;
-        }
-        return true;
+        return results;
     }
 
     bool fill_a_group(const Answer & answer, u32 groud_idx, bool has_remain) {
@@ -675,8 +730,8 @@ public:
 
         Answer one_group(answer);
         std::vector<u32> fill_list;
-        bool success = fill_a_group_impl(one_group, groud_idx, fill_list, 0, target_sum, rest_sum);
-        return success;
+        int results = fill_a_group_impl(one_group, groud_idx, 0, fill_list, 0, target_sum, rest_sum);
+        return (results > 0);
     }
 
     int try_to_slove() {
@@ -687,8 +742,9 @@ public:
         while (group_idx < n_group_) {
             if (answer_slove.remain() < remain_cnt) {
                 success = fill_a_group(answer_slove, group_idx, true);
-                if (success)
+                if (success) {
                     remain_cnt++;
+                }
             }
             else {
                 success = fill_a_group(answer_slove, group_idx, false);
