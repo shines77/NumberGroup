@@ -9,6 +9,8 @@
 #include <cstdio>
 #include <vector>
 
+#include "get_char.h"
+
 #define NUMBER_COUNT        100
 #define GROUP_COUNT         10
 
@@ -21,6 +23,8 @@
 
 typedef signed int   i32;
 typedef unsigned int u32;
+
+static int g_result_cnt = 0;
 
 namespace detail {
 
@@ -54,7 +58,7 @@ void copy_container(T & dest, T const & src) {
 
 } // namespace detail
 
-thread_local bool RandomSeed_inited = false;
+static thread_local bool RandomSeed_inited = false;
 
 struct RandomSeed {
     RandomSeed() { RandomSeed::init(); }
@@ -159,9 +163,9 @@ private:
         u32 minimum, maximun;
     };
 
-    u32 n_group_;
-    u32 num_length_;
-    u32 num_used_;
+    u32 group_max_;
+    i32 num_length_;
+    i32 num_used_;
     u32 sum_;
     u32 average_;
     u32 remain_;
@@ -174,19 +178,19 @@ public:
     static const double kSumLimitCoffe;
 
 public:
-    Answer() : n_group_(0), num_length_(0), num_used_(0),
+    Answer() : group_max_(0), num_length_(0), num_used_(0),
                sum_(0), average_(0), remain_(0), sum_limit_(0) {
     }
 
     Answer(u32 n_groups, u32 num_length)
-        : n_group_(n_groups), num_length_(num_length), num_used_(0),
+        : group_max_(n_groups), num_length_(num_length), num_used_(0),
           sum_(0), average_(0), remain_(0), sum_limit_(0) {
         init(n_groups, false);
         get_basic_info();
     }
 
     Answer(u32 n_groups, u32 num_length, std::vector<u32> const & numbers)
-        : n_group_(n_groups), num_length_(num_length), num_used_(0),
+        : group_max_(n_groups), num_length_(num_length), num_used_(0),
           sum_(0), average_(0), remain_(0), sum_limit_(0) {
         init(n_groups, false);
         copy_numbers(numbers);
@@ -198,8 +202,8 @@ public:
 
     ~Answer() {}
 
-    u32 group_num() const { return n_group_; }
-    u32 num_length() const { return num_length_; }
+    u32 group_max() const { return group_max_; }
+    i32 num_length() const { return num_length_; }
     std::vector<u32> const & numbers() const { return number_list; }
 
     u32 sum() const { return sum_; }
@@ -207,8 +211,8 @@ public:
     u32 remain() const { return remain_; }
     u32 sum_limit() const { return sum_limit_; }
 
-    u32 used_numbers() const { return num_used_; }
-    u32 remain_numbers() const { return (num_length_ >= num_used_) ? (num_length_ - num_used_) : (num_used_ - num_length_); }
+    i32 used_numbers() const { return num_used_; }
+    i32 remain_numbers() const { return (num_length_ >= num_used_) ? (num_length_ - num_used_) : (num_used_ - num_length_); }
 
     void copy_numbers(std::vector<u32> const & numbers, i32 num_length = -1) {
         detail::copy_container< std::vector<u32> >(number_list, numbers);
@@ -226,9 +230,10 @@ public:
         sum_limit_ = get_sum_limit(average);
     }
 
-    void resize(u32 n_groups, bool clear = true) {
-        init(n_groups, clear);
-        n_group_ = n_groups;
+    void resize(u32 group_num, bool clear = true) {
+        init(group_num, clear);
+        group_max_ = group_num;
+        get_basic_info();
     }
 
     Group const & get_groups(int index) const {
@@ -237,13 +242,13 @@ public:
     }
 
     void copy_from(Answer const & src) {
-        this->n_group_ = src.n_group_;
+        this->group_max_ = src.group_max_;
         this->num_length_ = src.num_length_;
         this->num_used_ = src.num_used_;
 
         this->groups.clear();
         detail::copy_container(this->groups, src.groups);
-        assert(this->n_group_ == src.groups.size());
+        assert(this->group_max_ == src.groups.size());
 
         this->number_list.clear();
         copy_numbers(src.number_list);
@@ -321,10 +326,11 @@ public:
                 NumberInfo number_info;
                 number_info.value = value;
                 groups[group_idx].numbers.push_back(number_info);
-                move_num_to_last(index, remain_length);
                 groups[group_idx].sum += value;
                 groups[group_idx].length++;
+                move_num_to_last(index, remain_length);
                 num_used_++;
+                sort_number_list(this->remain_numbers());
                 return true;
             }
         }
@@ -340,23 +346,24 @@ public:
             NumberInfo & number_info = groups[group_idx].numbers.back();
             assert(value == number_info.value);
             groups[group_idx].numbers.pop_back();
-            move_num_to_last(index, remain_length);
             assert(groups[group_idx].sum >= value);
             groups[group_idx].sum -= value;
             groups[group_idx].length--;
+            //move_num_to_last(index, remain_length);
             num_used_--;
+            sort_number_list(this->remain_numbers());
             return true;
         }
         return false;
     }
 
-    void sort_numbers(bool is_asc = true, size_t max_length = 0) {
+    void sort_numbers(bool is_asc = true, i32 max_length = -1) {
         // Sort per group number list, asc or desc order.
         for (size_t g = 0; g < groups.size(); ++g) {
             std::vector<NumberInfo> & numbers = groups[g].numbers;
             if (is_asc) {
-                for (size_t i = 0; i < numbers.size() - 1; ++i) {
-                    for (size_t j = i + 1; j < numbers.size(); ++j) {
+                for (i32 i = 0; i < numbers.size() - 1; ++i) {
+                    for (i32 j = i + 1; j < numbers.size(); ++j) {
                         if (numbers[i].value > numbers[j].value) {
                             std::swap(numbers[i], numbers[j]);
                         }
@@ -364,8 +371,8 @@ public:
                 }
             }
             else {
-                for (size_t i = 0; i < numbers.size() - 1; ++i) {
-                    for (size_t j = i + 1; j < numbers.size(); ++j) {
+                for (i32 i = 0; i < numbers.size() - 1; ++i) {
+                    for (i32 j = i + 1; j < numbers.size(); ++j) {
                         if (numbers[i].value < numbers[j].value) {
                             std::swap(numbers[i], numbers[j]);
                         }
@@ -375,13 +382,18 @@ public:
         }
 
         // Sort number list, desc order.
-        size_t length;
-        if (max_length == 0)
-            length = number_list.size();
-        else
+        sort_number_list(max_length);
+    }
+
+    // Sort number list, desc order.
+    void sort_number_list(i32 max_length = -1) {
+        i32 length;
+        if (max_length != -1)
             length = max_length;
-        for (size_t i = 0; i < length - 1; ++i) {
-            for (size_t j = i + 1; j < length; ++j) {
+        else
+            length = (i32)number_list.size();
+        for (i32 i = 0; i < length - 1; ++i) {
+            for (i32 j = i + 1; j < length; ++j) {
                 if (number_list[i] < number_list[j]) {
                     std::swap(number_list[i], number_list[j]);
                 }
@@ -390,14 +402,14 @@ public:
     }
 
 private:
-    void init(u32 n_group, bool clear) {
+    void init(u32 group_num, bool clear) {
         if (clear) {
             groups.clear();
         }
-        groups.resize(n_group);
+        groups.resize(group_num);
 
-        u32 capacity = n_group * 3;
-        for (size_t i = 0; i < n_group; ++i) {
+        u32 capacity = group_num * 3;
+        for (size_t i = 0; i < group_num; ++i) {
             if (clear) {
                 groups[i].numbers.clear();
             }
@@ -419,8 +431,8 @@ private:
             sum += number_list[i];
         }
         sum_ = sum;
-        average_ = sum / n_group_;
-        remain_ = sum % num_length_;
+        average_ = sum / group_max_;
+        remain_  = sum % group_max_;
         sum_limit_ = get_sum_limit(average_);
     }
 };
@@ -452,7 +464,7 @@ void display_answer_detail(Answer const & answer, u32 sum, u32 length, i32 group
     double std_diff = 0.0;
     i32 n_diff = 0, n_average = (i32)sum / groups;
 
-    printf("Answer[%u] = {\n", answer.used_numbers());
+    printf("Answer[%d] = {\n", answer.used_numbers());
     for (i32 g = 0; g < groups; ++g) {
         printf("    group[%2d]: { ", g + 1);
         u32 sum = 0;
@@ -487,7 +499,7 @@ class NumberGroup {
 private:
     typedef RandomGenerator<u32> RandomGen;
 
-    u32 n_group_, num_length_;
+    u32 group_max_, num_length_;
     u32 min_num_, max_num_;
     u32 sum_, average_, remain_;
     std::vector<u32> numbers_;
@@ -497,15 +509,15 @@ private:
     const double kPrePickupCoffe = 0.6f;
 
 public:
-    NumberGroup(u32 groups, u32 length, u32 min_num, u32 max_num)
-        : n_group_(groups), num_length_(length), min_num_(min_num), max_num_(max_num),
+    NumberGroup(u32 n_groups, u32 length, u32 min_num, u32 max_num)
+        : group_max_(n_groups), num_length_(length), min_num_(min_num), max_num_(max_num),
           sum_(0), average_(0), remain_(0) {
         // Generate randomize numbers.
         generate_numbers(length, min_num, max_num);
     };
     ~NumberGroup() {}
 
-    u32 group_num() const { return n_group_; }
+    u32 group_max() const { return group_max_; }
     u32 num_length() const { return num_length_; }
     std::vector<u32> const & numbers() const { return numbers_; }
 
@@ -514,17 +526,26 @@ public:
     u32 remain() const { return remain_; }
 
     void display_numbers() {
+        printf("The number list:\n\n");
         detail::display_numbers(numbers_, DISPLAY_COLUMNS);
     }
 
     void display_sorted_numbers() {
+        printf("Sorted number list:\n\n");
         detail::display_numbers(sorted_list_, DISPLAY_COLUMNS);
+    }
+
+    void display_answer_numbers() {
+        printf("The answer number list:\n\n");
+        detail::display_numbers(answer_.numbers(), DISPLAY_COLUMNS);
     }
 
     void display_answers_detail() {
         printf("kPrePickupCoffe = %0.6f\n", kPrePickupCoffe);
         printf("kSumLimitCoffe  = %0.6f\n\n", Answer::kSumLimitCoffe);
-        detail::display_answer_detail(answer_, sum_, num_length_, n_group_);
+
+        detail::display_numbers(answer_.numbers(), DISPLAY_COLUMNS);
+        detail::display_answer_detail(answer_, sum_, num_length_, group_max_);
     }
 
     void display_answers() {
@@ -542,26 +563,25 @@ public:
             sum += numbers_[i];
         }
         sum_ = sum;
-        average_ = sum / n_group_;
-        remain_ = sum % n_group_;
+        average_ = sum / group_max_;
+        remain_  = sum % group_max_;
 
-        double group_average = (double)sum / n_group_;
+        double group_average = (double)sum / group_max_;
         double num_average = (double)sum / num_length_;
         printf("sum = %u, remain = %u, group_average = %0.3f, num_average = %0.3f .\n\n",
                sum_, remain_, group_average, num_average);
     }
 
-    void sort_numbers(size_t max_length = 0) {
+    void sort_numbers(i32 max_length = 0) {
         detail::copy_container< std::vector<u32> >(sorted_list_, numbers_);
 
-        size_t i, j;
-        size_t length;
+        i32 length;
         if (max_length == 0)
-            length = numbers_.size();
+            length = (i32)numbers_.size();
         else
             length = max_length;
-        for (i = 0; i < length - 1; ++i) {
-            for (j = i + 1; j < length; ++j) {
+        for (i32 i = 0; i < length - 1; ++i) {
+            for (i32 j = i + 1; j < length; ++j) {
                 if (sorted_list_[i] < sorted_list_[j]) {
                     std::swap(sorted_list_[i], sorted_list_[j]);
                 }
@@ -581,14 +601,14 @@ public:
             front = 0;
         back = front + 1;
         for (u32 i = 0; i < step; ++i) {
-            group_index = RandomGen::next(n_group_);
+            group_index = RandomGen::next(group_max_);
             loop = 0;
             do {
                 bool success = result.pickup_pair_numbers(group_index, front, back);
                 group_index++;
-                group_index %= n_group_;
+                group_index %= group_max_;
                 loop++;
-                if (success || (loop > (i32)n_group_)) {
+                if (success || (loop > (i32)group_max_)) {
                     remain_length -= 2;
                     if (remain_length < 0)
                         exit = true;
@@ -617,7 +637,7 @@ public:
         i32 remain_length = (i32)num_length_;
         const i32 pickup_nums = (const i32)(num_length_ * kPrePickupCoffe);
         while (remain_length > ((i32)num_length_ - pickup_nums)) {
-            u32 group_index = RandomGen::next(n_group_);
+            u32 group_index = RandomGen::next(group_max_);
             i32 rand_index = RandomGen::next_i32(remain_length);
             if (result.pickup_numbers(group_index, rand_index, remain_length, result.sum_limit())) {
                 remain_length--;
@@ -626,32 +646,7 @@ public:
         return remain_length;
     }
 
-    void prepare() {
-        get_basic_info();
-
-        sort_numbers();
-        display_sorted_numbers();
-    }
-
-    int pre_pickup_numbers() {
-        answer_.resize(n_group_);
-        answer_.copy_numbers(sorted_list_);
-
-        //RandomSeed::force_reinit(2017);
-
-        Answer answer(n_group_, num_length_, sorted_list_);
-        int used_numbers = random_pickup_numbers(answer);
-        //int used_numbers = balance_pickup_numbers(answer);
-        if (used_numbers > 0) {
-            answer_.copy_from(answer);
-        }
-        answer_.sort_numbers(false, answer_.remain_numbers());
-
-        detail::display_numbers(answer_.numbers(), DISPLAY_COLUMNS);
-        return used_numbers;
-    }
-
-    void display_a_filllist(const Answer & answer, u32 groud_idx,
+    void display_a_fill_list(const Answer & answer, u32 groud_idx,
                             const std::vector<u32> & fill_list, int depth) {
         printf("groud_idx = %u, sum = %u\n\n", groud_idx, answer.groups[groud_idx].sum);
         printf("[%u] = \" ", groud_idx);
@@ -673,29 +668,35 @@ public:
         printf(" ]\n\n");
     }
 
-    int fill_a_group_impl(Answer & answer, u32 groud_idx, u32 pre_index,
-                          std::vector<u32> & fill_list,
-                          int depth, u32 target_sum, u32 rest_sum) {
+    int fill_one_group_impl(i32 depth, Answer & answer, u32 groud_idx,
+                            std::vector<u32> & fill_list,
+                            const std::vector<u32> & target_sums, u32 rest_sum) {
         int results = 0;
         u32 group_sum = answer.groups[groud_idx].sum;
-        if (group_sum == target_sum || rest_sum == 0) {
-            // Get a right group number list, continue to next group index.
-            display_a_filllist(answer, groud_idx, fill_list, depth);
-            return 1;
-        }
-        else if (group_sum > target_sum) {
-            return 0;
-        }
-        u32 remain_numbers = answer.remain_numbers();
-        bool found = false;
-        for (u32 index = pre_index + 1; index < remain_numbers; ++index) {
+        u32 target_sum = target_sums[groud_idx];
+        assert(group_sum <= target_sum);
+        assert(rest_sum > 0);
+        assert(groud_idx <= this->group_max());
+        i32 remain_numbers = answer.remain_numbers();
+        for (i32 index = 0; index < remain_numbers; ++index) {
             u32 number = answer.number_list[index];
             if (number < rest_sum) {
-                found = true;
+                bool is_repeat = false;
+                for (int i = (int)fill_list.size() - 1; i >= 0; --i) {
+                    if (number > fill_list[i]) {
+                        is_repeat = true;
+                        break;
+                    }
+                }
+                // Avoid the repeat answers.
+                if (is_repeat) {
+                    continue;
+                }
                 // Pickup
                 if (answer.pickup_numbers(groud_idx, index, remain_numbers, target_sum)) {
                     fill_list.push_back(number);
-                    int next_results = fill_a_group_impl(answer, groud_idx, index, fill_list, depth + 1, target_sum, rest_sum - number);
+                    int next_results = fill_one_group_impl(depth + 1, answer, groud_idx,
+                                                           fill_list, target_sums, rest_sum - number);
                     if (next_results > 0) {
                         results++;
                     }
@@ -706,10 +707,44 @@ public:
                 }
             }
             else if (number == rest_sum) {
+                bool is_repeat = false;
+                for (int i = (int)fill_list.size() - 1; i >= 0; --i) {
+                    if (number > fill_list[i]) {
+                        is_repeat = true;
+                        break;
+                    }
+                }
+                // Avoid the repeat answers.
+                if (is_repeat) {
+                    continue;
+                }
                 // Get a right group number list, continue to next group index.
                 if (answer.pickup_numbers(groud_idx, index, remain_numbers, target_sum)) {
                     fill_list.push_back(number);
-                    display_a_filllist(answer, groud_idx, fill_list, depth);
+                    g_result_cnt++;
+#if 0
+                    if (groud_idx >= 8) {
+                        display_a_fill_list(answer, groud_idx, fill_list, depth);
+                    }
+#endif
+                    if (groud_idx >= (this->group_max() - 1)) {
+                        // Get a answer!
+                        printf("The answers is:\n\n");
+                        detail::display_numbers(answer.numbers(), DISPLAY_COLUMNS);
+                        detail::display_answer_detail(answer, sum_, num_length_, group_max_);
+                        printf("Press any key to continue ...");
+                        jm_readkey();
+                        printf("\n");
+                        // Unpickup
+                        if (answer.unpickup_numbers(groud_idx, index, remain_numbers)) {
+                            fill_list.pop_back();
+                        }
+                        return 1;
+                    }
+                    else if (groud_idx < (this->group_max() - 1)) {
+                        // Search next group numbers.
+                        results = fill_one_group(answer, groud_idx + 1, target_sums);
+                    }
                 }
                 // Unpickup
                 if (answer.unpickup_numbers(groud_idx, index, remain_numbers)) {
@@ -721,16 +756,28 @@ public:
         return results;
     }
 
-    bool fill_a_group(const Answer & answer, u32 groud_idx, bool has_remain) {
-        u32 group_length = answer.groups[groud_idx].length;
+    bool fill_one_group(const Answer & answer, u32 groud_idx,
+                        const std::vector<u32> & target_sums) {
         u32 group_sum = answer.groups[groud_idx].sum;
-        u32 target_sum = this->average() + (has_remain == true);
-        u32 rest_sum = (target_sum >= group_sum) ? (target_sum - group_sum) : (group_sum - target_sum);
-        u32 left_numbers = answer.num_length();
+        u32 target_sum = target_sums[groud_idx];
+        u32 rest_sum = (target_sum >= group_sum) ? (target_sum - group_sum) : (target_sum - target_sum);
 
-        Answer one_group(answer);
+        Answer next_group(answer);
         std::vector<u32> fill_list;
-        int results = fill_a_group_impl(one_group, groud_idx, 0, fill_list, 0, target_sum, rest_sum);
+
+        next_group.sort_numbers(false, next_group.remain_numbers());
+#if 0
+        if (groud_idx > 8) {
+            printf("The answers is:\n\n");
+            detail::display_numbers(next_group.numbers(), DISPLAY_COLUMNS);
+            detail::display_answer_detail(next_group, sum_, num_length_, group_max_);
+            printf("Press any key to continue ...");
+            jm_readkey();
+            printf("\n");
+        }
+#endif
+
+        int results = fill_one_group_impl(0, next_group, groud_idx, fill_list, target_sums, rest_sum);
         return (results > 0);
     }
 
@@ -738,22 +785,57 @@ public:
         Answer answer_slove(answer_);
         u32 remain_cnt = 0;
         u32 group_idx = 0;
-        bool success = false;
-        while (group_idx < n_group_) {
-            if (answer_slove.remain() < remain_cnt) {
-                success = fill_a_group(answer_slove, group_idx, true);
-                if (success) {
-                    remain_cnt++;
-                }
+        std::vector<u32> target_sums;
+
+        target_sums.resize(this->group_max());
+        while (group_idx < this->group_max()) {
+            if (remain_cnt < answer_slove.remain()) {
+                target_sums[group_idx] = this->average() + 1;
+                remain_cnt++;
             }
             else {
-                success = fill_a_group(answer_slove, group_idx, false);
+                target_sums[group_idx] = this->average();
             }
-            if (!success)
-                break;
             group_idx++;
         }
+
+        g_result_cnt = 0;
+        bool success = fill_one_group(answer_slove, 0, target_sums);
+        if (success) {
+            printf("g_result_cnt = %d\n\n", g_result_cnt);
+            jm_readkey();
+            printf("\n");
+        }
         return (int)success;
+    }
+
+    void prepare() {
+        get_basic_info();
+
+        sort_numbers();
+        display_sorted_numbers();
+    }
+
+    int pre_pickup_numbers() {
+        answer_.resize(group_max_);
+        answer_.copy_numbers(sorted_list_);
+
+        //RandomSeed::force_reinit(2017);
+
+        Answer answer(group_max_, num_length_, sorted_list_);
+        int used_numbers = random_pickup_numbers(answer);
+        //int used_numbers = balance_pickup_numbers(answer);
+        if (used_numbers > 0) {
+            answer_.copy_from(answer);
+        }
+        answer_.sort_numbers(false, answer_.remain_numbers());
+
+        display_answers();
+        printf("Press any key to continue ...");
+        jm_readkey();
+        printf("\n");
+
+        return used_numbers;
     }
 
     int slove() {
@@ -783,7 +865,7 @@ private:
 int main(int argc, char * argv[])
 {
     // Force init fixed randomize seed.
-    RandomSeed::force_reinit(2017);
+    //RandomSeed::force_reinit(2017);
 
     NumberGroup slover(GROUP_COUNT, NUMBER_COUNT, 5, 100);
 
@@ -797,6 +879,8 @@ int main(int argc, char * argv[])
         slover.display_no_answers();
     }
 
+#if defined(WIN32) || defined(_WIN32) || defined(OS_WINDOWS) || defined(_WINDOWS)
     ::system("pause");
+#endif
     return 0;
 }

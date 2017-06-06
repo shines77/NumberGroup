@@ -10,5 +10,13 @@
     <ClCompile Include="main.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="get_char.c">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="get_char.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
