@@ -802,7 +802,7 @@ public:
     }
 
     void unfill_last_group(Answer & answer, i32 groud_idx, u32 fill_numbers) {
-        assert(last_fill_numbers > 0);
+        assert(fill_numbers > 0);
         answer.unfill_number(groud_idx, fill_numbers);
     }
 
