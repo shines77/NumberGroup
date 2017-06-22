@@ -623,8 +623,8 @@ private:
     const double kPrePickupCoffe = PRE_PICKUP_COFFE;
 
 public:
-    NumberGroup(i32 n_groups, i32 length, u32 min_num, u32 max_num)
-        : group_max_(n_groups), num_length_(length), min_num_(min_num), max_num_(max_num),
+    NumberGroup(i32 length, i32 group_num, u32 min_num, u32 max_num)
+        : group_max_(group_num), num_length_(length), min_num_(min_num), max_num_(max_num),
           sum_(0), average_(0), remain_(0) {
         // Generate randomize numbers.
         generate_numbers(length, min_num, max_num);
@@ -1033,7 +1033,7 @@ int main(int argc, char * argv[])
     //RandomSeed::force_reinit(2017);
     RandomSeed::init();
 
-    NumberGroup slover(GROUP_COUNT, NUMBER_COUNT, 5, 100);
+    NumberGroup slover(NUMBER_COUNT, GROUP_COUNT, 5, 100);
 
     slover.display_numbers();
 
